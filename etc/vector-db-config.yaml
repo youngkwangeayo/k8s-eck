@@ -1,0 +1,106 @@
+# VectorDB 최적화된 Elasticsearch 설정
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elasticsearch-vector-config
+  namespace: elastic-system
+data:
+  elasticsearch.yml: |
+    # 클러스터 설정
+    cluster.name: elasticsearch-vector
+
+    # 노드 설정
+    node.name: ${HOSTNAME}
+    node.roles: ${NODE_ROLES}
+
+    # 네트워크 설정
+    network.host: 0.0.0.0
+    discovery.seed_hosts: elasticsearch-es-transport
+    cluster.initial_master_nodes: elasticsearch-es-master-0,elasticsearch-es-master-1,elasticsearch-es-master-2
+
+    # 메모리 및 성능 최적화
+    bootstrap.memory_lock: true
+
+    # 인덱스 설정 - VectorDB 최적화
+    indices.memory.index_buffer_size: 40%
+    indices.fielddata.cache.size: 30%
+    indices.queries.cache.size: 20%
+
+    # 벡터 검색 최적화
+    thread_pool.search.queue_size: 5000
+    thread_pool.write.queue_size: 5000
+    thread_pool.get.queue_size: 1000
+
+    # 샤드 및 레플리카 설정
+    cluster.max_shards_per_node: 2000
+
+    # I/O 최적화
+    indices.store.preload: ["nvd", "dvd"]
+
+    # 세그먼트 병합 최적화
+    index.merge.policy.max_merge_at_once: 5
+    index.merge.policy.segments_per_tier: 5
+
+    # 벡터 인덱스 최적화
+    index.knn.algo_param.ef_construction: 200
+    index.knn.algo_param.m: 16
+
+    # 압축 설정
+    index.codec: best_compression
+
+    # 리프레시 최적화
+    index.refresh_interval: 5s
+
+    # 로깅 설정
+    logger.org.elasticsearch.indices.memory: DEBUG
+---
+# VectorDB용 인덱스 템플릿
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vector-index-template
+  namespace: elastic-system
+data:
+  setup.json: |
+    {
+      "index_patterns": ["vectors-*"],
+      "settings": {
+        "number_of_shards": 3,
+        "number_of_replicas": 1,
+        "index": {
+          "refresh_interval": "5s",
+          "codec": "best_compression",
+          "max_result_window": 50000,
+          "knn": true,
+          "knn.algo_param.ef_construction": 200,
+          "knn.algo_param.m": 16
+        }
+      },
+      "mappings": {
+        "properties": {
+          "vector": {
+            "type": "dense_vector",
+            "dims": 1536,
+            "index": true,
+            "similarity": "cosine"
+          },
+          "text": {
+            "type": "text",
+            "analyzer": "standard"
+          },
+          "metadata": {
+            "type": "object",
+            "dynamic": true
+          },
+          "timestamp": {
+            "type": "date"
+          },
+          "category": {
+            "type": "keyword"
+          },
+          "document_id": {
+            "type": "keyword"
+          }
+        }
+      }
+    }

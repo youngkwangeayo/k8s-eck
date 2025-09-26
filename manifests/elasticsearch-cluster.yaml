@@ -1,0 +1,110 @@
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: elasticsearch
+  namespace: elastic-system
+spec:
+  version: 8.14.3
+  nodeSets:
+  - name: master
+    count: 3
+    config:
+      node.roles: ["master"]
+      # xpack.security.enabled: true
+      # xpack.security.transport.ssl.enabled: true
+      # xpack.security.transport.ssl.verification_mode: certificate
+      # xpack.security.transport.ssl.client_authentication: required
+      # xpack.security.transport.ssl.keystore.path: /usr/share/elasticsearch/config/certs/elastic-certificates.p12
+      # xpack.security.transport.ssl.truststore.path: /usr/share/elasticsearch/config/certs/elastic-certificates.p12
+      # xpack.security.http.ssl.enabled: true
+      # xpack.security.http.ssl.keystore.path: /usr/share/elasticsearch/config/certs/elastic-certificates.p12
+    podTemplate:
+      metadata:
+        labels:
+          app: elasticsearch
+          role: master
+      spec:
+        containers:
+        - name: elasticsearch
+          resources:
+            limits:
+              memory: 2Gi
+              cpu: 1000m
+            requests:
+              memory: 1Gi
+              cpu: 200m
+          env:
+          - name: ES_JAVA_OPTS
+            value: "-Xms512m -Xmx512m"
+        # HACK ------ 일라스틱 서치 전용 배치 ------
+        # nodeSelector:                 
+        #   node-type: elasticsearch
+        # tolerations:
+        # - key: elasticsearch
+        #   operator: Equal
+        #   value: "true"
+        #   effect: NoSchedule
+        # ------ 일라스틱 서치 전용 배치 ------
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 5Gi
+        storageClassName: gp3-elasticsearch
+  - name: data
+    count: 2
+    config:
+      node.roles: ["data", "ingest"]
+      # xpack.security.enabled: true
+      # xpack.security.transport.ssl.enabled: true
+      # xpack.security.transport.ssl.verification_mode: certificate
+      # xpack.security.transport.ssl.client_authentication: required
+      # xpack.security.transport.ssl.keystore.path: /usr/share/elasticsearch/config/certs/elastic-certificates.p12
+      # xpack.security.transport.ssl.truststore.path: /usr/share/elasticsearch/config/certs/elastic-certificates.p12
+      # xpack.security.http.ssl.enabled: true
+      # xpack.security.http.ssl.keystore.path: /usr/share/elasticsearch/config/certs/elastic-certificates.p12
+    podTemplate:
+      metadata:
+        labels:
+          app: elasticsearch
+          role: data
+      spec:
+        containers:
+        - name: elasticsearch
+          resources:
+            limits:
+              memory: 3.5Gi
+              cpu: 1200m
+            requests:
+              memory: 2Gi
+              cpu: 400m
+          env:
+          - name: ES_JAVA_OPTS
+            value: "-Xms2g -Xmx2g"
+        # HACK ------ 일라스틱 서치 전용 배치 ------
+        # nodeSelector:
+        #   node-type: elasticsearch
+        # tolerations:
+        # - key: elasticsearch
+        #   operator: Equal
+        #   value: "true"
+        #   effect: NoSchedule
+        # ------ 일라스틱 서치 전용 배치 ------
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 40Gi
+        storageClassName: gp3-elasticsearch
+  http:
+    tls:
+      selfSignedCertificate:
+        disabled: false

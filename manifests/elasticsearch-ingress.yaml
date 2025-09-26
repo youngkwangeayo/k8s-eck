@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: elasticsearch-ingress
+  namespace: elastic-system
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/backend-protocol: HTTPS
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:ap-northeast-2:365485194891:certificate/4b2094ef-fd6b-4ce1-ac47-9d10bf0e9590"
+    # alb.ingress.kubernetes.io/certificate-arn: "쉼표로 n개 가능 acm1, acm2, acm3"
+    alb.ingress.kubernetes.io/group.name: "elasticsearch-alb"
+    alb.ingress.kubernetes.io/healthcheck-path: "/_cluster/health"
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTPS
+spec:
+  ingressClassName: alb
+  rules:
+  - host: elasticsearch.nextaistore.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: elasticsearch-service
+            port:
+              number: 9200

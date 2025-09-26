@@ -1,0 +1,84 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: elasticsearch-cluster
+  region: ap-northeast-2
+  version: "1.33"
+
+vpc:
+  id: "vpc-034eeb9cf1d02a537" 
+  subnets:
+    private:
+      ap-northeast-2a: { id: "subnet-0fc1b3e0846ade412" }
+      ap-northeast-2b: { id: "subnet-062e2a471d8628d0e" }
+      ap-northeast-2c: { id: "subnet-04c78b4425cc07d66" }  
+  clusterEndpoints:
+    privateAccess: true
+    publicAccess: true
+  publicAccessCIDRs: ["0.0.0.0/0"]
+
+iam:
+  withOIDC: true
+  serviceAccounts:
+  - metadata:
+      name: aws-load-balancer-controller
+      namespace: kube-system
+    wellKnownPolicies:
+      awsLoadBalancerController: true
+  - metadata:
+      name: ebs-csi-controller-sa
+      namespace: kube-system
+    wellKnownPolicies:
+      ebsCSIController: true
+  - metadata:
+      name: cluster-autoscaler
+      namespace: kube-system
+    wellKnownPolicies:
+      autoScaler: true
+
+managedNodeGroups:
+- name: elasticsearch-nodes
+  instanceType: t3.large
+  subnets: ["subnet-0fc1b3e0846ade412", "subnet-062e2a471d8628d0e", "subnet-04c78b4425cc07d66"]
+  privateNetworking: true
+  minSize: 2
+  maxSize: 4
+  desiredCapacity: 2
+  volumeSize: 200
+  volumeType: gp3
+  amiFamily: AmazonLinux2023
+  ssh:
+    enableSsm: true
+  labels:
+    node-type: elasticsearch
+  # taints:
+  # - key: elasticsearch
+  #   value: "true"
+  #   effect: NoSchedule
+  tags:
+    k8s.io/cluster-autoscaler/enabled: "true"
+    k8s.io/cluster-autoscaler/elasticsearch-cluster: "owned"
+  iam:
+    attachPolicyARNs:
+    - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+    - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+    - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+    - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+
+addons:
+- name: vpc-cni
+  version: latest
+- name: coredns
+  version: latest
+- name: kube-proxy
+  version: latest
+- name: aws-ebs-csi-driver
+  version: latest
+  # serviceAccountRoleARN: arn:aws:iam::365485194891:role/AmazonEKS_EBS_CSI_DriverRole
+  wellKnownPolicies:
+    ebsCSIController: true
+
+cloudWatch:
+  clusterLogging:
+    enableTypes: ["api", "audit", "authenticator", "controllerManager", "scheduler"]
